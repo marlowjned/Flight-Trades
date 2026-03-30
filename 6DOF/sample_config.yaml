@@ -1,0 +1,45 @@
+# ============================
+#  SAMPLE CONFIG FILE WEEEEE
+# ============================
+
+simulation:
+	type: '6DOF'
+	dt: 0.05
+	max_runtime: 200
+	iterations_per_trial: 10
+
+rocket:
+	ORK_path: 'some/path/here/'
+	ORK_filename: 'ProspectORK.csv'
+
+	RasAero_path: 'another/one/'
+	RasAero_filename: 'ProspectRas.csv'
+
+	OVERRIDE_mass: !linspace [8e4, 10e4, 10]
+
+recovery: 
+	parachute_count: 2
+	CdA: [1, 2]
+	deployment_altitude: [None, 2000] # None implies at apogee
+
+environment:
+	wind_shear_path: 'wind_data/'
+	wind_shear_filename: 'wind.csv'
+
+	OVERRIDE_gust_W20: 15
+
+observe: ['time', 'altitude', 'velocity', 'damping ratio']
+
+
+
+
+
+
+
+
+
+# TODO: Figure out how to make recovery easily implementable/tradeable
+# TODO: How to set dimension which variations happen through ...
+# TODO: add observables
+
+
