@@ -1,2 +1,2 @@
 # Flight-Trades
-6DOF flight trade framework
+6DOF rocket flight trade framework
