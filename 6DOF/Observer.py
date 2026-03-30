@@ -1,7 +1,7 @@
 # Observer.py
 # Handles quick implementation of data collection, essential for a dynamic flight trade framework
 
-class DataRecorder:
+class Observer:
     def __init__(self):
         self._listeners = {}  # Variable name -> list of callbacks
 

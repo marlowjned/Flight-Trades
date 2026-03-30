@@ -9,6 +9,7 @@ import time
 import Rocket
 import Environment
 import GravityModel
+import Observer
 import Vector3D
 
 class FlightSim():
@@ -127,6 +128,9 @@ class FlightSim():
         simulationRunning = True
         runtime = 0
         startTime = time.perf_counter()
+
+        observer = Observer()
+        observer.subscribe("State", lambda v: history["State"].append(v))
 
         while (simulationRunning and runtime < self.settings.maxRuntime):
             # check stopping logic
