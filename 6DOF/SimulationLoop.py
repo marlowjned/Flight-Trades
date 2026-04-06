@@ -17,11 +17,11 @@ class FlightSim():
     # TODO: rework this class?
     class FlightState:
         def __init__(self, 
-                     time: float,
-                     position: Vector3D,
-                     velocity: Vector3D,
-                     orientation: Rotation,
-                     omega: Vector3D):
+                     time: float = 0,
+                     position: Vector3D = Vector3D(),
+                     velocity: Vector3D = Vector3D(),
+                     orientation: Rotation = Rotation.from_quat([0, 0, 0, 1]), 
+                     omega: Vector3D = Vector3D()):
             self.time = time
             self.position = position
             self.velocity = velocity
@@ -70,23 +70,23 @@ class FlightSim():
         self._gravity = gravity
 
         self.settings = settings
-        self._state = init_state
+        self.state = init_state
 
 
     def _acceleration(self, state: FlightState) -> np.ndarray: # TODO: change to stateVec
         # From forces: rocket aero, rocket thrust, gravity
-        effectiveAirflow = self.Environment.wind - self.currentFlightState.velocity.vectorWorld
-
-        aero = self._rocket.aeroForce(state, effectiveAirflow).vectorWorld / self._rocket.mass(state.time)
         thrust = self._rocket.thrust(state.time).vectorWorld / self._rocket.mass(state.time)
+        thrusting = True if thrust > 0 else False
+
+        aero = self._rocket.aeroForce(state, self.env, thrusting).vectorWorld / self._rocket.mass(state.time)
         gravity = self._gravity.g(state.position[3])
         
-        return aero + thrust + gravity
+        return thrust + aero + gravity
 
     def _rotationalAcceleration(self, state: FlightState) -> np.ndarray:
-        I = self._rocket.inertia_tensor(state.time)
+        I = self._rocket.inertia(state.time) # In body frame, okay because extra term below
         Idot = self._rocket.inertia_tensor_dot(state.time)
-        tau = self._aero_torque(state)
+        tau = self._rocket._aero_torque(state)
 
         return np.linalg.solve(I, tau - Idot @ state.omega - np.cross(state.omega, I @ state.omega))
     
@@ -123,6 +123,9 @@ class FlightSim():
 
     def run(self):
         # update own state at every time step
+        
+        # get snapshot config
+        # collect data at each step
 
         onLaunchRail = True
         simulationRunning = True
@@ -136,6 +139,7 @@ class FlightSim():
             # check stopping logic
 
             # record data
+            observer.notify("State", self.state)
             # OBSERVERS!!
 
             if onLaunchRail:
@@ -148,5 +152,7 @@ class FlightSim():
             runtime = time.perf_counter() - startTime
 
         return
+    
+    # TODO: just make an aero data package for aero calcs OR pass environment and flight states
 
 

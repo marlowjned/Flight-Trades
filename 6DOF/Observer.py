@@ -1,6 +1,8 @@
 # Observer.py
 # Handles quick implementation of data collection, essential for a dynamic flight trade framework
 
+# Default includes: all state variables, mass, Ixx Iyy, CP, CG, environmental data, g, stability
+
 class Observer:
     def __init__(self):
         self._listeners = {}  # Variable name -> list of callbacks

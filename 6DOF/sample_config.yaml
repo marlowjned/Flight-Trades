@@ -3,10 +3,11 @@
 # ============================
 
 simulation:
-	type: '6DOF'
+	type: 'Trade'              # as opposed to 'Single Trial'
+	dof: '6DOF'                # as opposed to '1D'
 	dt: 0.05
-	max_runtime: 200
-	iterations_per_trial: 10
+	max_runtime: 200           # in seconds
+	iterations_per_trial: 10   # for differing environmental conditions per configuration
 
 rocket:
 	ORK_path: 'some/path/here/'
@@ -17,7 +18,20 @@ rocket:
 
 	OVERRIDE_mass: !linspace [8e4, 10e4, 10]
 
-recovery: 
+
+trade_study:
+	blocks:
+		- name: engine design
+			parameters:
+				engine_mass: !linspace [20.0, 30.0, 10]
+				thrust: !linspace [1000.0, 2000.0, 10]
+
+		- name: fin sizing
+			parameters:
+				height: !linspace [8.0, 16.0, 5]
+
+
+recovery: # alternatively 0, and trials are simulated up until recovery
 	parachute_count: 2
 	CdA: [1, 2]
 	deployment_altitude: [None, 2000] # None implies at apogee
@@ -28,9 +42,15 @@ environment:
 
 	OVERRIDE_gust_W20: 15
 
+
 observe: ['time', 'altitude', 'velocity', 'damping ratio']
 
+# single trial vs trade default observables are different
 
+# single trial: ork data type
+# trade: mean data or extremes
+
+# TODO: how to handle multiple trials per rocket configuration
 
 
 

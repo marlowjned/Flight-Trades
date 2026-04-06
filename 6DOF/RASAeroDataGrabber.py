@@ -15,42 +15,46 @@ class RasAero:
         WORLD = auto()
         BODY = auto()
 
-    def __init__(self, csvName: str, frame: Frame = self.Frame.WORLD):
+    def __init__(self, csvName: str, frame: Frame = Frame.WORLD):
         self._rasData = pd.read_csv(csvName)
-        if (frame == Frame.WORLD):
-            _aeroVars = ['CD Power-Off', 'CD Power-On', 'CL', 'CP']
+        if (frame == self.Frame.WORLD):
+            self._aeroVars = ['CD Power-Off', 'CD Power-On', 'CL', 'CP']
         else:
-            _aeroVars = ['CA Power-Off'	'CA Power-On', 'CN', 'CP']
+            self._aeroVars = ['CA Power-Off', 'CA Power-On', 'CN', 'CP']
         
         # Find all unique Mach and Alpha values
-        self.machVals = sorted(set(_rasData['Mach']))
-        self.alphaVals = sorted(set(_rasData['Alpha']))
+        self.machVals = sorted(set(self._rasData['Mach']))
+        self.alphaVals = sorted(set(self._rasData['Alpha']))
         
-        interpMap = {}
+        self.interpMap = {}
         
         # Fill in array with values based on indices in Mach/Alpha
         for var in _aeroVars:
-            _tempArray = np.zeros(len(machVals), len(alphaVals))
+            _tempArray = np.zeros(len(self.machVals), len(self.alphaVals))
             
-            for coeff in _rasData[var]:
+            for coeff in self._rasData[var]:
                 # Find corresponding Mach Alpha location
-                idxMach, idxAlpha = _valuePosition(coeff)
+                idxMach, idxAlpha = self._valuePosition(coeff)
                 
                 # Place in 2D array
                 _tempArray[idxMach][idxAlpha] = coeff
 
-            interpMap[var] = Interpolator2D(machVals, alphaVals, _tempArray)
+            interpMap[var] = CustomInterpolator.Interpolator2D(self.machVals, self.alphaVals, _tempArray)
 
-    def _valuePosition(self, value):
-        idx = _rasData[var].index(coeff)
-        mach = _rasData['Mach'][idx]
-        alpha = _rasData['Alpha'][idx]
+    # TODO: fix these bottom two
+    def _valuePosition(self, coeff):
+        idx = self._rasData[var].index(coeff)
+        mach = self._rasData['Mach'][idx]
+        alpha = self._rasData['Alpha'][idx]
 
-        return [machVals.index(mach), alphaVals.index(alpha)]
+        return [self.machVals.index(mach), self.alphaVals.index(alpha)]
 
 
-    def coeffTable(self, varName: str) -> Interpolator2D:
-        return interpMap[varName]
+    def coeffTable(self, varName: str) -> CustomInterpolator.Interpolator2D:
+        return self.interpMap[varName]
+    
+    def getCoeffs(self, mach: float, alpha: float):
+        return [self.interpMap[var] for var in self._aeroVars]
 
 
 

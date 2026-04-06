@@ -10,9 +10,24 @@
 # TODO: Recovery system (recovery class)
 # TODO: Engine (class)
 
+from __future__ import annotations
+from typing import TYPE_CHECKING
+
+import numpy as np
+import pandas as pd
+from dataclasses import dataclass
+from scipy.spatial.transform import Rotation
+
 import ORKDataGrabber
 import RasAeroDataGrabber
-import SimulationLoop
+import CustomInterpolator
+import Engine
+import Recovery
+import Vector3D
+import Environment
+
+if TYPE_CHECKING:
+    import SimulationLoop
 
 
 class Rocket:
@@ -50,27 +65,117 @@ class Rocket:
         # Ultimate needs: Mass, Ijj, CG, Aero Data, recovery, engine
         # If a recovery system is not provided, assumed to stop at apogee
         
-        def __init__(self):
-                pass
+        # TODO: Make own file? May be worthwhile to allow mass component subsystems for easy implementations of variations
+        @dataclass
+        class MassComponent:
+                mass:  CustomInterpolator.Interpolator1D
+                CG:    CustomInterpolator.Interpolator1D
+                Ilong: CustomInterpolator.Interpolator1D
+                Irot:  CustomInterpolator.Interpolator1D
+
+                override: bool = False # Overrides subcomponents
+
+
+        # TODO: some of these variables could be better organized
+        def __init__(self, 
+                     massData: MassComponent,
+                     rasCSV: str,
+                     engine: Engine = None,
+                     recovery: Recovery.Recovery = None):
+                self.massData = massData
+                self.rasCSV = rasCSV
+                self.engine = engine
+                self.recovery = recovery
+
+                self.rasaero = RasAeroDataGrabber(rasCSV)
 
         # RasAero and ORK (and optional Engine) eng: Engine = None
         @classmethod
-        def from_csv(cls, path):
-                return cls(mass)
+        def from_ork(cls, orkCSV: str, rasCSV: str, engine: Engine = None, recovery: Recovery.Recovery = None):
+                massCurve, CGCurve, ILCurve, IRCurve, thrustCurve = cls._parse_ork(orkCSV)
+                massComp = cls.MassComponent(massCurve, CGCurve, ILCurve, IRCurve, bool(engine))
+
+                eng = engine if engine else Engine(None, thrustCurve)
+
+                return cls(massComp, rasCSV, eng, recovery)
+
+        def _parse_ork(self, orkCSV: str):
+                orkData = pd.read_csv(orkCSV)
+                massVars = ["Mass (g)", 
+                            "CG location (cm)", 
+                            "Longitudinal moment of inertia (kg·m²)", 
+                            "Rotational moment of inertia (kg·m²)"]
+                result = []
+                for var in massVars:
+                        result.append(CustomInterpolator.Interpolator1D(orkData["# Time (s)"], 
+                                                                        orkData[var], 
+                                                                        CustomInterpolator.Interpolator1D.BoundaryBehavior.LASTVAL))
+                return result
 
         # RasAero, direct rocket data (net or engless), Engine
 
+        # Dynamic Pressure
+        @property
+        def q(self, rho: float, v: float) -> float:
+                return 0.5 * rho * (v ** 2)
+        
+        def machAlpha(self):
+                _mach = self.currFlightState.velocity / self.currEnvironment.a
+                _alpha = self.angleBetweenVectors(self.currFlightState.orientation[1:3], self.effAirflow.vectorWorld)
+                return _mach, _alpha
 
-        def aeroForce(fs: SimulationLoop.FlightSim.FlightState):
-                pass
+        def angleBetweenVectors(self, v1: np.ndarray, v2: np.ndarray) -> float:
+                # sin(alpha) = v1 * v2 / |v1||v2|
+                return np.arcsin(np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2)))
 
-        def moment():
+
+        def aeroForce(self, fs: SimulationLoop.FlightSim.FlightState, env: Environment.Environment, thrusting: bool):
+                self.updateStates(fs, env)
+
+                mach, alpha = self.machAlpha()
+                CDOFF, CDON, CL, CP = self.rasaero.getCoeffs(mach, alpha)
+
+                drag = CDON * self.q if thrusting else CDOFF * self.q
+                dragVector = drag * self.effAirflow.normalized.vectorWorld
+
+                lift = CL * self.q
+                liftUnitDirection = self.effAirflow.vectorWorld - np.dot(self.effAirflow, fs.orientation.as_quat()[1:3]) * fs.orientation.as_quat()[1:3]
+                liftVector = lift * liftUnitDirection
+
+                netForce = dragVector + liftVector
+                return Vector3D(netForce), CP
+        
+        def aeroMoments(self, fs: SimulationLoop.FlightSim.FlightState, env: Environment.Environment, thrusting: bool):
+                force, cp = self.aeroForce(fs, env, thrusting)
+
+                arm = cp - self.massData.CG(fs.time)
+                armVector = arm * fs.orientation.as_quat[1:3]
+
+                moment = np.cross(armVector, force.elements)
+                return moment
+
+        def updateStates(self, fs: SimulationLoop.FlightSim.FlightState, env: Environment.Environment):
+                if ((fs is not self.currFlightState) or (env is not self.currEnvironment)):
+                        self.currFlightState = fs
+                        self.currEnvironment = env
+                        _effAirflow = env.windVector.vectorWorld - fs.velocity.vectorWorld
+                        self.effAirflow = Vector3D(_effAirflow)
+
+        def moment(self):
+                # cross (aero force) with (orientation * calipers)
                 pass
 
         @property 
         def mass():
+                # some logic for override
                 pass
 
+        def inertia(self, time: float) -> np.ndarray:
+                return np.array([[self.Ilong.query(time), 0, 0],
+                                 [0, self.Irot.query(time), 0],
+                                 [0, 0, self.Irot.query(time)]])
         
+        def inertia_dot(self, time:float) -> np.ndarray:
+                pass
 
 
