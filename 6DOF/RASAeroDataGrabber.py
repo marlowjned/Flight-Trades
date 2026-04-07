@@ -29,8 +29,8 @@ class RasAero:
         self.interpMap = {}
         
         # Fill in array with values based on indices in Mach/Alpha
-        for var in _aeroVars:
-            _tempArray = np.zeros(len(self.machVals), len(self.alphaVals))
+        for var in self._aeroVars:
+            _tempArray = np.zeros((len(self.machVals), len(self.alphaVals)))
             
             for coeff in self._rasData[var]:
                 # Find corresponding Mach Alpha location
@@ -39,7 +39,7 @@ class RasAero:
                 # Place in 2D array
                 _tempArray[idxMach][idxAlpha] = coeff
 
-            interpMap[var] = CustomInterpolator.Interpolator2D(self.machVals, self.alphaVals, _tempArray)
+            self.interpMap[var] = CustomInterpolator.Interpolator2D(self.machVals, self.alphaVals, _tempArray)
 
     # TODO: fix these bottom two
     def _valuePosition(self, coeff):
@@ -54,7 +54,7 @@ class RasAero:
         return self.interpMap[varName]
     
     def getCoeffs(self, mach: float, alpha: float):
-        return [self.interpMap[var] for var in self._aeroVars]
+        return [self.interpMap[var].query(mach, alpha) for var in self._aeroVars]
 
 
 

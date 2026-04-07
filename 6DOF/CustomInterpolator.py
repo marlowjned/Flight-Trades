@@ -6,6 +6,8 @@ from enum import Enum, auto
 from typing import Optional
 import numpy as np
 
+# TODO: add derivative method (Ilong_dot, Irot_dot)
+
 class Interpolator1D:
     class BoundaryBehavior(Enum):
         NULLVAL = auto()
@@ -58,6 +60,14 @@ class Interpolator1D:
             return 0.0
         elif self._boundary == self.BoundaryBehavior.LASTVAL:
             return float(self._y[0] if x_query < self._x[0] else self._y[-1])
+
+    def derivative(self) -> "Interpolator1D":
+        x_mid = (self._x[:-1] + self._x[1:]) / 2
+        y_deriv = np.diff(self._y) / np.diff(self._x)
+        deriv_boundary = (self.BoundaryBehavior.ZEROVAL
+                          if self._boundary == self.BoundaryBehavior.LASTVAL
+                          else self._boundary)
+        return Interpolator1D(x_mid, y_deriv, deriv_boundary)
 
     @property
     def x_bounds(self) -> tuple[float, float]:

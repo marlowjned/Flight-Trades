@@ -8,12 +8,23 @@ import numpy as np
 from dataclasses import dataclass
 
 import CustomInterpolator
+import Vector3D
 
 if TYPE_CHECKING:
     import Rocket
 
 # TEMPORARY, rpa implementations will flesh out this class significantly
-@dataclass
 class Engine:
-    massData: Rocket.Rocket.MassComponent # if massData = None, just return 0 for any call
-    thrust: CustomInterpolator.Interpolator1D
+    def __init__(self, 
+                 massData: Rocket.Rocket.MassComponent,
+                 thrust: CustomInterpolator.Interpolator1D):
+        self.massData = massData
+        self.thrust = thrust
+
+    def thrustVector(self, time: float, DCM: np.ndarray):
+        currentThrust = self.thrust.query(time)
+        return Vector3D([0, 0, currentThrust], DCM, True)
+    
+    # engine should probably own the property "thrusting"
+
+    

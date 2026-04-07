@@ -18,7 +18,7 @@ class GravityModel:
         # include pointer to altitude s.t. this can
         # be a property and not a function
         #@property
-        def g(altitude) -> Vector3D:
+        def g(self, altitude) -> Vector3D:
                 gravity = bl.WGS84.normal_gravity(latitude=45, height=altitude) * 1e5 # m/s^2
                 return Vector3D([0, 0, -gravity])
                 # TODO: may need a input unit conversion

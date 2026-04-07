@@ -39,32 +39,6 @@ class Rocket:
         # no ork -> direct rocket + direct engine
         # does it make sense to consider rocket and engine separately then?
 
-        '''
-	def __init__(self, orkFileName: str, rasFileName: str):
-                odg = ORKDataGrabber(csvPath)
-                
-                self.mass() = odg.netMassCurve()
-                self.CG() = odg.netCGCurve()
-                self.longMOI() = odg.longMOICurve()
-                self.rotMOI() = odg.rotMOICurve()
-
-                self.rasaero = RasAero(rasFilePath, RasAero.Frame.WORLD)
-                self.CP() = self.rasaero.coeffTable('CP')
-        
-
-        def inertia(self, time: float):
-                l = longMOI.query(time)
-                r = rotMOI.query(time)
-                return np.array([[l, 0, 0],
-                                 [0, r, 0],
-                                 [0, 0, r]])
-        '''
-        # TODO: all this shit
-        
-        # TODO: Add derivative method to custom interpolator
-        # Ultimate needs: Mass, Ijj, CG, Aero Data, recovery, engine
-        # If a recovery system is not provided, assumed to stop at apogee
-        
         # TODO: Make own file? May be worthwhile to allow mass component subsystems for easy implementations of variations
         @dataclass
         class MassComponent:
@@ -87,7 +61,10 @@ class Rocket:
                 self.engine = engine
                 self.recovery = recovery
 
-                self.rasaero = RasAeroDataGrabber(rasCSV)
+                self.rasaero = RasAeroDataGrabber.RasAero(rasCSV)
+
+                self.currFlightState = None
+                self.currEnvironment = None
 
         # RasAero and ORK (and optional Engine) eng: Engine = None
         @classmethod
@@ -99,7 +76,8 @@ class Rocket:
 
                 return cls(massComp, rasCSV, eng, recovery)
 
-        def _parse_ork(self, orkCSV: str):
+        @staticmethod
+        def _parse_ork(orkCSV: str):
                 orkData = pd.read_csv(orkCSV)
                 massVars = ["Mass (g)", 
                             "CG location (cm)", 
@@ -110,25 +88,28 @@ class Rocket:
                         result.append(CustomInterpolator.Interpolator1D(orkData["# Time (s)"], 
                                                                         orkData[var], 
                                                                         CustomInterpolator.Interpolator1D.BoundaryBehavior.LASTVAL))
+                result.append(CustomInterpolator.Interpolator1D(orkData["# Time (s)"], 
+                                                                        orkData['Thrust (N)'], 
+                                                                        CustomInterpolator.Interpolator1D.BoundaryBehavior.LASTVAL))
+                
                 return result
 
         # RasAero, direct rocket data (net or engless), Engine
 
         # Dynamic Pressure
-        @property
         def q(self, rho: float, v: float) -> float:
                 return 0.5 * rho * (v ** 2)
         
         def machAlpha(self):
-                _mach = self.currFlightState.velocity / self.currEnvironment.a
-                _alpha = self.angleBetweenVectors(self.currFlightState.orientation[1:3], self.effAirflow.vectorWorld)
+                _mach = self.currFlightState.velocity.magnitude / self.currEnvironment.a
+                _alpha = self.angleBetweenVectors(self.currFlightState.orientation[0:2], self.effAirflow.vectorWorld)
                 return _mach, _alpha
 
         def angleBetweenVectors(self, v1: np.ndarray, v2: np.ndarray) -> float:
                 # sin(alpha) = v1 * v2 / |v1||v2|
                 return np.arcsin(np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2)))
 
-
+        # TODO: include recovery force (if configured), maybe can be done within the simulation loop itself
         def aeroForce(self, fs: SimulationLoop.FlightSim.FlightState, env: Environment.Environment, thrusting: bool):
                 self.updateStates(fs, env)
 
@@ -148,8 +129,8 @@ class Rocket:
         def aeroMoments(self, fs: SimulationLoop.FlightSim.FlightState, env: Environment.Environment, thrusting: bool):
                 force, cp = self.aeroForce(fs, env, thrusting)
 
-                arm = cp - self.massData.CG(fs.time)
-                armVector = arm * fs.orientation.as_quat[1:3]
+                arm = cp - self.massData.CG.query(fs.time)
+                armVector = arm * fs.orientation.apply([0, 0, 1])
 
                 moment = np.cross(armVector, force.elements)
                 return moment
@@ -159,23 +140,32 @@ class Rocket:
                         self.currFlightState = fs
                         self.currEnvironment = env
                         _effAirflow = env.windVector.vectorWorld - fs.velocity.vectorWorld
-                        self.effAirflow = Vector3D(_effAirflow)
+                        self.effAirflow = Vector3D(_effAirflow, fs.orientation.as_matrix())
 
         def moment(self):
                 # cross (aero force) with (orientation * calipers)
                 pass
 
-        @property 
-        def mass():
-                # some logic for override
-                pass
+        def mass(self, time: float):
+                # TODO: logic for override + adding subcomponenets
+                return self.massData.mass.query(time)
+        
+        def CG(self, time: float):
+                # TODO: logic for override + subcomponents
+                return self.massData.CG.query(time)
 
         def inertia(self, time: float) -> np.ndarray:
-                return np.array([[self.Ilong.query(time), 0, 0],
-                                 [0, self.Irot.query(time), 0],
-                                 [0, 0, self.Irot.query(time)]])
-        
-        def inertia_dot(self, time:float) -> np.ndarray:
-                pass
+                Ilong = self.massData.Ilong.query(time)
+                Irot  = self.massData.Irot.query(time)
+                return np.array([[Ilong, 0,     0    ],
+                                 [0,     Ilong, 0    ],
+                                 [0,     0,     Irot ]])
+
+        def inertia_dot(self, time: float) -> np.ndarray:
+                IlongDot = self.massData.Ilong.derivative().query(time)
+                IrotDot  = self.massData.Irot.derivative().query(time)
+                return np.array([[IlongDot, 0,        0       ],
+                                 [0,        IlongDot, 0       ],
+                                 [0,        0,        IrotDot ]])
 
 

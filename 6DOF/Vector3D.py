@@ -11,7 +11,7 @@ class Vector3D:
                      isBodyFrame: bool = False):
 		self.elements = elements
 		self.DCM = dcm # Body to world
-		self.DCM_inv = np.linalg.inv(dcm) # World to body
+		self.DCM_inv = np.linalg.inv(dcm) if dcm is not None else None
 		self.isBodyFrame = isBodyFrame # Assumes world frame otherwise
         
 	@property
