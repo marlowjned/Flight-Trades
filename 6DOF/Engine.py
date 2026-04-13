@@ -8,7 +8,7 @@ import numpy as np
 from dataclasses import dataclass
 
 import CustomInterpolator
-import Vector3D
+from Vector3D import Vector3D
 
 if TYPE_CHECKING:
     import Rocket

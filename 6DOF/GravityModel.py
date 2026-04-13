@@ -3,7 +3,7 @@
 
 import boule as bl
 
-import Vector3D
+from Vector3D import Vector3D
 
 #def __init__(RefAltitude, RefLatitude):
 #	refAltitude = RefAltitude
@@ -19,6 +19,6 @@ class GravityModel:
         # be a property and not a function
         #@property
         def g(self, altitude) -> Vector3D:
-                gravity = bl.WGS84.normal_gravity(latitude=45, height=altitude) * 1e5 # m/s^2
+                gravity = bl.WGS84.normal_gravity((0, 45, altitude), si_units=True) # m/s^2
                 return Vector3D([0, 0, -gravity])
                 # TODO: may need a input unit conversion

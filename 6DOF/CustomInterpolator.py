@@ -78,16 +78,19 @@ class Interpolator1D:
         return self._boundary
 	
 
-import numpy as np
-from typing import Optional
-
 class Interpolator2D:
+
+    class BoundaryBehavior(Enum):
+        NULLVAL = auto()
+        ZEROVAL = auto()
+        LASTVAL = auto()
 
     def __init__(
         self,
         x: np.ndarray,
         y: np.ndarray,
         z: np.ndarray,
+        boundary: "Interpolator2D.BoundaryBehavior" = None,
     ):
         """
         Args:
@@ -105,11 +108,20 @@ class Interpolator2D:
         self._x = np.array(x, dtype=float)
         self._y = np.array(y, dtype=float)
         self._z = np.array(z, dtype=float)
+        self._boundary = boundary if boundary is not None else self.BoundaryBehavior.NULLVAL
 
     def query(self, x_query: float, y_query: float) -> Optional[float]:
-        if (x_query < self._x[0] or x_query > self._x[-1] or
-            y_query < self._y[0] or y_query > self._y[-1]):
-            return None
+        out_of_bounds = (x_query < self._x[0] or x_query > self._x[-1] or
+                         y_query < self._y[0] or y_query > self._y[-1])
+
+        if out_of_bounds:
+            if self._boundary == self.BoundaryBehavior.NULLVAL:
+                return None
+            elif self._boundary == self.BoundaryBehavior.ZEROVAL:
+                return 0.0
+            elif self._boundary == self.BoundaryBehavior.LASTVAL:
+                x_query = float(np.clip(x_query, self._x[0], self._x[-1]))
+                y_query = float(np.clip(y_query, self._y[0], self._y[-1]))
 
         i = int(np.clip(np.searchsorted(self._x, x_query, side="right") - 1, 0, len(self._x) - 2))
         j = int(np.clip(np.searchsorted(self._y, y_query, side="right") - 1, 0, len(self._y) - 2))
@@ -123,7 +135,7 @@ class Interpolator2D:
                 self._z[i+1, j+1] *      tx  *      ty  )
 
     def query_array(self, x_queries: np.ndarray, y_queries: np.ndarray) -> np.ndarray:
-        """Returns object array — entries are float or None for out-of-bounds."""
+        """Returns object array — entries are float or None for NULLVAL out-of-bounds."""
         x_queries = np.asarray(x_queries, dtype=float)
         y_queries = np.asarray(y_queries, dtype=float)
         if x_queries.shape != y_queries.shape:

@@ -1,3 +1,5 @@
+# NOTE: THIS FILE/CLASS IS NO LONGER IN USE
+
 # Observer.py
 # Handles quick implementation of data collection, essential for a dynamic flight trade framework
 

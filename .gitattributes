@@ -1,0 +1,12 @@
+# Normalize line endings to LF in the repository, check out as CRLF on Windows
+* text=auto eol=crlf
+
+# Force LF for files that must not have CRLF (shell scripts, etc.)
+*.sh text eol=lf
+
+# Binary files — no line ending conversion
+*.png binary
+*.jpg binary
+*.nc  binary
+*.npz binary
+*.csv binary

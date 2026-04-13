@@ -10,17 +10,17 @@ class Vector3D:
                      dcm: np.ndarray = None, # TODO: add stuff s.t. transform just won't be allowed
                      isBodyFrame: bool = False):
 		self.elements = elements
-		self.DCM = dcm # Body to world
+		self.DCM = dcm # World to body
 		self.DCM_inv = np.linalg.inv(dcm) if dcm is not None else None
 		self.isBodyFrame = isBodyFrame # Assumes world frame otherwise
         
 	@property
 	def vectorWorld(self):
-		return ((self.elements @ self.DCM) if self.isBodyFrame else self.elements)
+		return ((self.elements @ self.DCM_inv) if self.isBodyFrame else self.elements)
 
 	@property
 	def vectorBody(self):
-		return (self.elements if self.isBodyFrame else (self.elements @ self.DCM_inv))
+		return (self.elements if self.isBodyFrame else (self.elements @ self.DCM))
 	
 	@property
 	def magnitude(self):
@@ -29,6 +29,8 @@ class Vector3D:
 	@property
 	def normalized(self):
 		mag = self.magnitude
+		if mag == 0:
+			return Vector3D(np.zeros(3), self.DCM, self.isBodyFrame)
 		return Vector3D(self.elements / mag, self.DCM, self.isBodyFrame)
 	
 	# rework these

@@ -32,20 +32,19 @@ class RasAero:
         for var in self._aeroVars:
             _tempArray = np.zeros((len(self.machVals), len(self.alphaVals)))
             
-            for coeff in self._rasData[var]:
+            for idx, coeff in enumerate(self._rasData[var]):
                 # Find corresponding Mach Alpha location
-                idxMach, idxAlpha = self._valuePosition(coeff)
-                
+                idxMach, idxAlpha = self._valuePosition(var, idx)
+
                 # Place in 2D array
                 _tempArray[idxMach][idxAlpha] = coeff
 
-            self.interpMap[var] = CustomInterpolator.Interpolator2D(self.machVals, self.alphaVals, _tempArray)
+            self.interpMap[var] = CustomInterpolator.Interpolator2D(self.machVals, self.alphaVals, _tempArray,
+                                                                      CustomInterpolator.Interpolator2D.BoundaryBehavior.LASTVAL)
 
-    # TODO: fix these bottom two
-    def _valuePosition(self, coeff):
-        idx = self._rasData[var].index(coeff)
-        mach = self._rasData['Mach'][idx]
-        alpha = self._rasData['Alpha'][idx]
+    def _valuePosition(self, var: str, idx: int):
+        mach = self._rasData['Mach'].iloc[idx]
+        alpha = self._rasData['Alpha'].iloc[idx]
 
         return [self.machVals.index(mach), self.alphaVals.index(alpha)]
 
@@ -53,8 +52,11 @@ class RasAero:
     def coeffTable(self, varName: str) -> CustomInterpolator.Interpolator2D:
         return self.interpMap[varName]
     
-    def getCoeffs(self, mach: float, alpha: float):
-        return [self.interpMap[var].query(mach, alpha) for var in self._aeroVars]
+    def getCoeffs(self, mach: float, alpha_rad: float):
+        alpha_deg = np.degrees(alpha_rad)
+        coeffs = [self.interpMap[var].query(mach, alpha_deg) for var in self._aeroVars]
+        coeffs[-1] *= 0.0254  # CP: inches -> meters
+        return coeffs
 
 
 

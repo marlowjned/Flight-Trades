@@ -1,26 +1,26 @@
 # ============================
-#  SAMPLE CONFIG FILE WEEEEE
+#  SAMPLE CONFIG FILE
 # ============================
 
 simulation:
-  type: 'Trade'              # as opposed to 'Single Trial'
-  #dof: '6DOF'              # as opposed to '1D'
-  dt: 0.05                  # timestep (s)
-  max_runtime: 200          # (s)
-  iterations_per_trial: 10  # for differing environmental conditions per configuration
+  type: 'Trade'              # 'Trade' or 'Single Trial'
+  dt: 0.05                   # timestep (s)
+  max_runtime: 200           # max wall-clock runtime (s)
+  iterations_per_trial: 10   # trials per permutation (varying wind seed)
 
   recovery_sim: true
-  launch_rail_length: 5.0
-  launchrail_length: 13
-  launchrail_orientation: [0, 0, 1] 
+  launch_rail_length: 5.0    # (m)
+  launchrail_orientation: [0, 0, 1]
+
 
 rocket:
   ORK_path: 'some/path/here/'
   ORK_filename: 'ProspectORK.csv'
 
-	# include option for length interpolated rocket
   RasAero_path: 'another/one/'
   RasAero_filename: 'ProspectRas.csv'
+
+  reference_area: 0.0  # m^2 — rocket cross-sectional area
 
   #OVERRIDE_mass: !linspace [8e4, 10e4, 10]
 
@@ -38,19 +38,28 @@ trade_study:
 
 
 recovery:
-  parachute_count: 2
   CdA: [1, 2]
   deployment_altitude: [null, 2000]
 
-environment:
-	model: SEB-v1.0
-  wind_shear_path: 'wind_data/'
-  wind_shear_filename: 'wind.csv'
 
-  OVERRIDE_gust_W20: 15
+wind:
+  type: simple               # 'simple' or 'SEB-windmodel'
+  magnitude: 5.0             # mean wind speed (m/s)
+  direction: 0.0             # clockwise from north (rad)
+  turbulence_intensity: 1.0  # noise std scale (0 = no turbulence, 1 = default)
+  alt_min: 0.0               # lower bound of wind profile (m)
+  alt_max: 10000.0           # upper bound of wind profile (m)
+  alt_steps: 100             # number of altitude samples
+
+# SEB-windmodel example:
+# wind:
+#   type: SEB-windmodel
+#   data_path: './era5_cache/era5_2023_06_preprocessed.npz'
+#   scale: 1.0
+#   n_modes: null             # auto (retain 95% variance)
+
 
 record:
   - apogee
   - max_velocity
   - flight_time
-

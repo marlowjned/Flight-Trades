@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep:*)",
+      "Bash(.venv/Scripts/python main.py 6DOF/test_config.yaml)",
+      "Bash(.venv/Scripts/python -c \"import boule; help\\(boule.WGS84.normal_gravity\\)\")",
+      "Bash(.venv/Scripts/python.exe main.py 6DOF/test_config.yaml -s flight_profile.csv)",
+      "Bash(.venv/Scripts/python.exe main.py 6DOF/test_config.yaml)",
+      "Bash(.venv/Scripts/python.exe -c \"import cdsapi, xarray, netCDF4; print\\('deps OK'\\)\")",
+      "Bash(.venv/Scripts/python.exe main.py 6DOF/seb_wind_test_config.yaml -s seb_flight_profile.csv)"
+    ]
+  }
+}

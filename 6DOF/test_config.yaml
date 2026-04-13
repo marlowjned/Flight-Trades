@@ -1,0 +1,39 @@
+# test_config.yaml
+# Single trial test run using Prospect 1 data
+
+simulation:
+  type: 'Single Trial'
+  dt: 0.05
+  max_runtime: 120
+  iterations_per_trial: 1
+
+  recovery_sim: true
+  launch_rail_length: 5.0
+  launchrail_orientation: [0, 0, 1]
+
+rocket:
+  ORK_path: '6DOF/User-Reference-CSVs/'
+  ORK_filename: 'p1ORK-6dof.csv'
+
+  RasAero_path: '6DOF/User-Reference-CSVs/'
+  RasAero_filename: 'p1ras-6dof.csv'
+
+  reference_area: 0.03242927866  # m^2
+
+recovery:
+  CdA: [1.0, 10.0]
+  deployment_altitude: [null, 500]
+
+wind:
+  type: simple
+  magnitude: 3.0
+  direction: 0.785   # radians CW from North, ~45 deg (NE)
+  turbulence_intensity: 1.0
+  alt_min: 0.0
+  alt_max: 10000.0 # TODO: automate this
+  alt_steps: 100
+
+record:
+  - apogee
+  - max_velocity
+  - flight_time
