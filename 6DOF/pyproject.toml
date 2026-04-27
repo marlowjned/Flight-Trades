@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "flight-sim"
+version = "0.1.0"
+description = "6DOF rocket flight simulation with trade study framework"
+requires-python = ">=3.10"
+dependencies = [
+    "numpy>=1.26.0",
+    "scipy>=1.12.0",
+    "pandas>=2.0.0",
+    "pyyaml>=6.0",
+    "ambiance>=1.3.0",
+    "boule>=0.4.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["flight_sim*"]

@@ -1,0 +1,19 @@
+# Flight-Trades — full dependency list
+# Install: pip install -r requirements.txt
+# Then:    pip install -e SEB-windmodel/ && pip install -e 6DOF/
+
+# --- shared ---
+numpy>=1.26.0
+scipy>=1.12.0
+pandas>=2.0.0
+
+# --- 6DOF ---
+pyyaml>=6.0
+ambiance>=1.3.0
+boule>=0.4.0
+
+# --- SEB-windmodel ---
+xarray>=2024.1.0
+netCDF4>=1.6.5
+matplotlib>=3.8.0
+cdsapi>=0.7.0          # only needed for ERA5 data fetching

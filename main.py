@@ -5,8 +5,8 @@
 #   python main.py <config_path> [--output <output_path>]
 #
 # Examples:
-#   python main.py 6DOF/sample_config.yaml
-#   python main.py 6DOF/sample_config.yaml --output results/run1.csv
+#   python main.py user_inputs/configs/test_config.yaml
+#   python main.py user_inputs/configs/test_config.yaml --output results/run1.csv
 
 import argparse
 import os
@@ -14,7 +14,7 @@ import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "6DOF"))
 
-import SimulationHandler
+from flight_sim.core.sim_handler import SimulationHandler
 
 
 def default_output_path(config_path: str) -> str:
@@ -38,7 +38,7 @@ def main():
     print(f"Config:  {args.config}")
     print(f"Output:  {output_path}")
 
-    handler = SimulationHandler.SimulationHandler(args.config)
+    handler = SimulationHandler(args.config)
 
     n_perms  = len(handler._permutations)
     n_trials = handler.config.get("simulation", {}).get("iterations_per_trial", 1)

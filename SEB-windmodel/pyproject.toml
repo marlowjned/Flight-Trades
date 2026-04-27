@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "seb-wind-model"
+version = "0.1.0"
+description = "ERA5-based EOF wind ensemble with Von Kármán turbulence for 6DOF flight simulation"
+requires-python = ">=3.10"
+dependencies = [
+    "cdsapi>=0.7.0",
+    "xarray>=2024.1.0",
+    "numpy>=1.26.0",
+    "scipy>=1.12.0",
+    "matplotlib>=3.8.0",
+    "netCDF4>=1.6.5",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["seb_wind_model*"]

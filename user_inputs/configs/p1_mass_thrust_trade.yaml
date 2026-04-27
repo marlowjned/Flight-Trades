@@ -1,0 +1,68 @@
+# p1_mass_thrust_trade.yaml
+# Trade study: mass vs thrust efficiency for Prospect 1
+#
+# Two independent sweep blocks (Cartesian product):
+#   mass:         10 points  (kg)
+#   thrust_scale: 10 points  (fraction of nominal)
+#
+# Permutations:  10 x 10  =   100
+# Iterations:           x  10  =  1000  total flight simulations
+#
+# Run:
+#   python main.py user_inputs/configs/p1_mass_thrust_trade.yaml
+
+
+simulation:
+  type: 'Trade'
+  dt: 0.05
+  max_runtime: 120
+  iterations_per_trial: 1
+
+  recovery_sim: true
+  launch_rail_length: 5.0
+  launchrail_orientation: [0, 0, 1]
+
+
+rocket:
+  ORK_path: 'user_inputs/rocket_data/'
+  ORK_filename: 'p1ORK-6dof.csv'
+
+  RasAero_path: 'user_inputs/rocket_data/'
+  RasAero_filename: 'p1ras-6dof.csv'
+
+  reference_area: 0.03242927866  # m^2
+
+
+trade_study:
+  blocks:
+    - name: 'mass sweep'
+      parameters:
+        mass: !linspace [32.0, 42.0, 5]     # kg
+
+    - name: 'thrust efficiency'
+      parameters:
+        thrust_scale: !linspace [0.4, 1.0, 5]  # fraction of nominal
+
+
+recovery:
+  CdA: [1.0, 10.0]
+  deployment_altitude: [null, 500]  # main at 500 m, drogue at apogee
+
+
+wind:
+  type: SEB-windmodel
+  data_path: 'december_07_2025_1300_at_35.35_-117.81/era5_wind_data.nc'
+  lat: 35.35
+  lon: -117.81
+  surface_elev_m: 700.0
+  alt_max_m: 15000.0
+  alt_dz_m: 50.0
+  scale: 1.0
+  n_modes: null             # auto (retain 95% variance)
+
+
+record:
+  - apogee
+  - max_mach
+  - landing_x
+  - landing_y
