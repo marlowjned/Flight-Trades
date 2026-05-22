@@ -1,0 +1,52 @@
+# spaceshot_thrust_trade.yaml
+# For each thrust level, bisects on propellant mass until apogee is within
+# +-5 kft of the 380 kft target, then records the result for comparison.
+#
+# Run:
+#   python main.py user_inputs/configs/spaceshot_thrust_trade.yaml
+
+simulation:
+  type: 'Trade'
+  dt: 0.05
+  max_runtime: 120           # wall-clock seconds per individual sim run
+  iterations_per_trial: 1
+
+  recovery_sim: false
+  launch_rail_length: 5.0    # TODO: REPLACE THIS — (m)
+  launchrail_orientation: [0, 0, 1]
+
+
+rocket:
+  RasAero_path: 'user_inputs/rocket_data/'
+  RasAero_filename: 'p1ras-6dof.csv'   # TODO: REPLACE THIS — placeholder aero, swap for actual spaceshot vehicle
+  reference_area: 0.03243              # TODO: REPLACE THIS — m², placeholder matching p1ras file
+
+
+sizing:
+  script: 'spaceshot_sizing.py'
+  target_apogee_m: 115824    # 380 kft
+  tolerance_m: 1524          # ±5 kft
+  m_prop_bounds: [10, 200]   # TODO: REPLACE THIS — bisection search bounds (kg), must bracket the solution
+
+
+trade_study:
+  blocks:
+    - name: 'thrust sweep'
+      parameters:
+        thrust: !linspace [3000, 10000, 3]  # TODO: REPLACE THIS — T_min (N), T_max (N), N points
+
+
+wind:
+  type: simple
+  magnitude: 5.0             # TODO: REPLACE THIS — mean wind speed (m/s)
+  direction: 0.0
+  turbulence_intensity: 1.0
+  alt_min: 0.0
+  alt_max: 120000.0
+  alt_steps: 200
+
+
+record:
+  - apogee
+  - flight_time
+  - max_q
