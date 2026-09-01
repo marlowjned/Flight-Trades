@@ -60,6 +60,31 @@ class Rocket:
         self.rasaero = RasAeroLoader(ras_csv)
 
     @classmethod
+    def from_synthetic(cls,
+                       m_wet:      float, cg_wet:     float, i_long_wet: float, i_rot_wet: float,
+                       m_dry:      float, cg_dry:     float, i_long_dry: float, i_rot_dry: float,
+                       burn_time:  float,
+                       thrust_t:   np.ndarray, thrust_F: np.ndarray,
+                       ras_csv:    str,  ref_area: float,
+                       recovery:   Recovery = None) -> 'Rocket':
+        """Build a Rocket from pre-computed wet/dry states and a synthesized thrust curve."""
+        LASTVAL = Interpolator1D.BoundaryBehavior.LASTVAL
+        ZEROVAL = Interpolator1D.BoundaryBehavior.ZEROVAL
+        # Three points so derivative() produces a valid 2-point interpolator:
+        # burn phase (0 → burn_time) has the actual rate; post-burn rate is 0.
+        t = [0.0, burn_time, burn_time + 1.0]
+
+        mass_comp = cls.MassComponent(
+            mass   = Interpolator1D(t, [m_wet,      m_dry,      m_dry     ], LASTVAL),
+            cg     = Interpolator1D(t, [cg_wet,     cg_dry,     cg_dry    ], LASTVAL),
+            i_long = Interpolator1D(t, [i_long_wet, i_long_dry, i_long_dry], LASTVAL),
+            i_rot  = Interpolator1D(t, [i_rot_wet,  i_rot_dry,  i_rot_dry ], LASTVAL),
+            override=True,
+        )
+        engine = Engine(None, Interpolator1D(thrust_t, thrust_F, ZEROVAL))
+        return cls(mass_comp, ras_csv, ref_area, engine, recovery)
+
+    @classmethod
     def from_ork(cls, ork_csv: str, ras_csv: str, ref_area: float,
                  engine: Engine = None, recovery: Recovery = None):
         mass_curve, cg_curve, il_curve, ir_curve, thrust_curve = cls._parse_ork(ork_csv)

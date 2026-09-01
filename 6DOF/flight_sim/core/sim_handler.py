@@ -24,6 +24,7 @@ RECORD_EXTRACTORS = {
     "flight_time":  lambda snaps: snaps[-1].time,
     "max_velocity": lambda snaps: max(s._state.velocity.magnitude for s in snaps),
     "max_mach":     lambda snaps: max(s.mach for s in snaps),
+    "max_q":        lambda snaps: max(s.dynamic_pressure for s in snaps),
     "landing_x":    lambda snaps: snaps[-1].pos_x,
     "landing_y":    lambda snaps: snaps[-1].pos_y,
 }
@@ -36,6 +37,13 @@ class SimulationHandler:
         self._permutations = self._generate_permutations()
         self._results   = []
         self._snapshots = {}  # (perm_idx, trial_idx) -> list[SimSnapshot]
+
+        self._sizing_mod  = None
+        self._tank_sizing = None
+        sizing_cfg = self.config.get('sizing', {})
+        if sizing_cfg.get('script'):
+            self._sizing_mod  = self._load_module(sizing_cfg['script'])
+            self._tank_sizing = self._load_module('tank_sizing.py')
 
     def _generate_permutations(self) -> list[dict]:
         blocks = self.config.get("trade_study", {}).get("blocks", [])
@@ -173,23 +181,58 @@ class SimulationHandler:
         return Recovery(devices)
 
     def _build_rocket(self, config: dict) -> Rocket:
-        rocket_cfg = config.get("rocket", {})
+        rocket_cfg      = config.get("rocket", {})
+        ras_path        = rocket_cfg.get("RasAero_path", "") + rocket_cfg.get("RasAero_filename", "")
+        ref_area        = rocket_cfg.get("reference_area")
+        trade_overrides = config.get("_trade_overrides", {})
+
+        if 'thrust' in trade_overrides:
+            return self._build_rocket_from_assembly(rocket_cfg, trade_overrides, ras_path, ref_area)
 
         ork_path = rocket_cfg.get("ORK_path", "") + rocket_cfg.get("ORK_filename", "")
-        ras_path = rocket_cfg.get("RasAero_path", "") + rocket_cfg.get("RasAero_filename", "")
-        ref_area = rocket_cfg.get("reference_area")
-
-        rocket = Rocket.from_ork(ork_path, ras_path, ref_area, recovery=self._build_recovery(config))
+        rocket   = Rocket.from_ork(ork_path, ras_path, ref_area, recovery=self._build_recovery(config))
 
         # Merge static overrides (from rocket.overrides:) with trade study overrides.
         # Trade study values take precedence.
         static_overrides = rocket_cfg.get("overrides", {}) or {}
-        trade_overrides  = config.get("_trade_overrides", {})
         all_overrides    = {**static_overrides, **trade_overrides}
         if all_overrides:
             rocket.apply_overrides(all_overrides)
 
         return rocket
+
+    def _load_module(self, filename):
+        import importlib.util, os
+        path = os.path.join('user_inputs', 'custom-expressions', filename)
+        spec = importlib.util.spec_from_file_location(f'_{filename}', path)
+        mod  = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        return mod
+
+    def _build_rocket_from_assembly(self, rocket_cfg: dict, overrides: dict,
+                                     ras_path: str, ref_area: float) -> Rocket:
+        import os
+
+        T          = float(overrides['thrust'])
+        m_wet      = float(overrides['mass'])
+        cg_wet     = float(overrides['cg'])
+        m_dry      = float(overrides['m_dry'])
+        cg_dry     = float(overrides['cg_dry'])
+        burn_time  = float(overrides['burn_time'])
+        i_long_wet = float(overrides.get('i_long_wet', 0.0))  # TODO: REPLACE THIS
+        i_rot_wet  = float(overrides.get('i_rot_wet',  0.0))  # TODO: REPLACE THIS
+        i_long_dry = float(overrides.get('i_long_dry', 0.0))  # TODO: REPLACE THIS
+        i_rot_dry  = float(overrides.get('i_rot_dry',  0.0))  # TODO: REPLACE THIS
+
+        tc = self._load_module('thrust_curve.py')
+        thrust_t, thrust_F = tc.thrust_curve(T, burn_time)
+
+        return Rocket.from_synthetic(
+            m_wet,  cg_wet,  i_long_wet, i_rot_wet,
+            m_dry,  cg_dry,  i_long_dry, i_rot_dry,
+            burn_time, thrust_t, thrust_F,
+            ras_path, ref_area,
+        )
 
     def _build_sim(self, config: dict, seed: int) -> FlightSim:
         settings = self._build_settings(config)
@@ -221,14 +264,55 @@ class SimulationHandler:
 
         return row
 
+    def _eval_apogee(self, thrust, m_prop) -> float:
+        sizing = self._tank_sizing.size_at_prop_mass(
+            self._sizing_mod.COMPONENTS,
+            self._sizing_mod.TANK_SECTION,
+            thrust, m_prop,
+        )
+        temp            = copy.deepcopy(self.config)
+        temp['_trade_overrides'] = {'thrust': thrust, **sizing, 'm_prop': m_prop}
+        snaps = self._build_sim(temp, seed=0).run()
+        return max(s.altitude for s in snaps)
+
+    def _bisect_prop_mass(self, thrust, sizing_cfg) -> float:
+        target = sizing_cfg['target_apogee_m']
+        tol    = sizing_cfg.get('tolerance_m', 1524.0)
+        lo, hi = sizing_cfg['m_prop_bounds']
+
+        for _ in range(50):
+            mid    = (lo + hi) / 2.0
+            apogee = self._eval_apogee(thrust, mid)
+            if abs(apogee - target) <= tol:
+                return mid
+            elif apogee < target:
+                lo = mid
+            else:
+                hi = mid
+
+        return (lo + hi) / 2.0
+
     def run(self, abort_fn=None, trial_callback=None) -> list[dict]:
         iterations_per_trial = self.config.get("simulation", {}).get("iterations_per_trial", 1)
+        sizing_cfg           = self.config.get('sizing')
 
         for perm_idx, permutation in enumerate(self._permutations):
             merged = self._merge_config(self.config, permutation)
+
+            if sizing_cfg and self._sizing_mod:
+                m_prop  = self._bisect_prop_mass(permutation['thrust'], sizing_cfg)
+                sizing  = self._tank_sizing.size_at_prop_mass(
+                    self._sizing_mod.COMPONENTS,
+                    self._sizing_mod.TANK_SECTION,
+                    permutation['thrust'], m_prop,
+                )
+                merged['_trade_overrides'].update(sizing)
+                merged['_trade_overrides']['m_prop'] = m_prop
+                permutation = {**permutation, 'm_prop': m_prop, **sizing}
+
             for trial_idx in range(iterations_per_trial):
-                seed = perm_idx * iterations_per_trial + trial_idx
-                sim  = self._build_sim(merged, seed)
+                seed  = perm_idx * iterations_per_trial + trial_idx
+                sim   = self._build_sim(merged, seed)
                 snaps = sim.run(abort_fn=abort_fn)
                 self._snapshots[(perm_idx, trial_idx)] = snaps
                 record = self._extract_record(snaps, permutation, perm_idx, trial_idx)
