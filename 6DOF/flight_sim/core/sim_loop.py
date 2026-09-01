@@ -57,6 +57,10 @@ class FlightSim:
         launch_rail_len: float
         launch_rail_orientation: Rotation = Rotation.from_quat([0, 0, 0, 1])
 
+        # Optional coarser timestep used after motor burnout.
+        # None means use the same dt throughout.
+        dt_coast: float = None
+
     def __init__(self, rocket: Rocket,
                  wind_model: WindModelBase,
                  gravity: GravityModel,
@@ -147,7 +151,7 @@ class FlightSim:
         step_vector = init_state + (dt / 6) * (k1 + 2 * k2 + 2 * k3 + k4)
         return self.FlightState.from_vector(step_vector)
 
-    def run(self):
+    def run(self, abort_fn=None):
         on_launch_rail = True
         rail_dir = self.settings.launch_rail_orientation.apply([0, 0, 1])
         rail_len = self.settings.launch_rail_len
@@ -155,6 +159,7 @@ class FlightSim:
         start_time = time.perf_counter()
 
         snapshots = []
+        self.aborted = False
 
         while runtime < self.settings.max_runtime:
             if self.state.position.vector_world[2] < 0:
@@ -163,7 +168,12 @@ class FlightSim:
                 break
 
             sc = SimConditions.compute(self.state, self._wind_model)
-            snapshots.append(SimSnapshot(self.state, sc, self._rocket))
+            snap = SimSnapshot(self.state, sc, self._rocket)
+            snapshots.append(snap)
+
+            if abort_fn is not None and not on_launch_rail and abort_fn(snap):
+                self.aborted = True
+                break
 
             if hasattr(self._wind_model, 'advance'):
                 V = np.linalg.norm(self.state.velocity.vector_world)
@@ -176,6 +186,17 @@ class FlightSim:
                     on_launch_rail = False
                 runtime = time.perf_counter() - start_time
                 continue
+
+            # Use coarser timestep after burnout if dt_coast is set
+            if self.settings.dt_coast is not None:
+                thrusting = np.linalg.norm(
+                    self._rocket.engine.thrust_vector(
+                        self.state.time, self.state.orientation.as_matrix()
+                    ).vector_world
+                ) > 0
+                self.settings.dt = (self.settings.dt
+                                    if thrusting
+                                    else self.settings.dt_coast)
 
             self.state = self._rk4_step(self.state)
             runtime = time.perf_counter() - start_time

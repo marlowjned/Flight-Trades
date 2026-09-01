@@ -1,0 +1,37 @@
+record:
+- apogee
+- landing_x
+- landing_y
+- max_mach
+recovery:
+  CdA:
+  - 1.0
+  - 10.0
+  deployment_altitude:
+  - null
+  - 500
+rocket:
+  ORK_filename: new_12ft.csv
+  ORK_path: user_inputs/rocket_data/
+  RasAero_filename: new_12ft_aero.csv
+  RasAero_path: user_inputs/rocket_data/
+  reference_area: 0.03242927866223985
+simulation:
+  dt: 0.05
+  iterations_per_trial: 5
+  launch_rail_length: 5.0
+  launchrail_orientation:
+  - 0
+  - 0
+  - 1
+  max_runtime: 1500
+  recovery_sim: true
+  type: Trade
+wind:
+  alt_max: 15000.0
+  alt_min: 0.0
+  alt_steps: 100
+  direction: 0.0
+  magnitude: 5.0
+  turbulence_intensity: 1.0
+  type: simple

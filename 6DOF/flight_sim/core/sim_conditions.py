@@ -40,7 +40,7 @@ class SimConditions:
         wind:  wind_module.WindModelBase,
     ) -> SimConditions:
 
-        atm = Atmosphere(max(state.position.z, 0.0))
+        atm = Atmosphere(min(max(state.position.z, 0.0), 81020.0))
         rho = float(atm.density[0])
         a   = float(atm.speed_of_sound[0])
 

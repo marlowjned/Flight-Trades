@@ -51,7 +51,7 @@ recovery:
 
 wind:
   type: SEB-windmodel
-  data_path: 'december_07_2025_1300_at_35.35_-117.81/era5_wind_data.nc'
+  data_path: 'data/wind/december_07_2025_1300_at_35.35_-117.81/era5_wind_data.nc'
   lat: 35.35
   lon: -117.81
   surface_elev_m: 700.0

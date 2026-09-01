@@ -76,6 +76,7 @@ class SimulationHandler:
         sim_cfg   = config.get("simulation", {})
 
         dt               = sim_cfg.get("dt", 0.05)
+        dt_coast         = sim_cfg.get("dt_coast", None)
         max_runtime      = sim_cfg.get("max_runtime", 200)
         recovery_sim     = sim_cfg.get("recovery_sim", False)
         launch_rail_len  = sim_cfg.get("launch_rail_length", 5.0)
@@ -85,6 +86,7 @@ class SimulationHandler:
 
         return FlightSim.SimulationSettings(
             dt=dt,
+            dt_coast=dt_coast,
             max_runtime=max_runtime,
             recovery_sim=recovery_sim,
             launch_rail_len=launch_rail_len,
@@ -219,7 +221,7 @@ class SimulationHandler:
 
         return row
 
-    def run(self) -> list[dict]:
+    def run(self, abort_fn=None, trial_callback=None) -> list[dict]:
         iterations_per_trial = self.config.get("simulation", {}).get("iterations_per_trial", 1)
 
         for perm_idx, permutation in enumerate(self._permutations):
@@ -227,9 +229,13 @@ class SimulationHandler:
             for trial_idx in range(iterations_per_trial):
                 seed = perm_idx * iterations_per_trial + trial_idx
                 sim  = self._build_sim(merged, seed)
-                snaps = sim.run()
+                snaps = sim.run(abort_fn=abort_fn)
                 self._snapshots[(perm_idx, trial_idx)] = snaps
-                self._results.append(self._extract_record(snaps, permutation, perm_idx, trial_idx))
+                record = self._extract_record(snaps, permutation, perm_idx, trial_idx)
+                record['aborted'] = getattr(sim, 'aborted', False)
+                self._results.append(record)
+                if trial_callback is not None:
+                    trial_callback(record)
 
         return self._results
 
